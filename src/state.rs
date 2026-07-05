@@ -57,6 +57,14 @@ pub struct ProgramState {
     // ───── Timelock: Beneficiary ─────
     pub pending_beneficiary: Pubkey,
     pub pending_beneficiary_deadline: i64,
+
+    // ───── Timelock: Payment Mint ─────
+    pub pending_payment_mint: Pubkey,
+    pub pending_payment_mint_deadline: i64,
+
+    // ───── Timelock: Mint Price ─────
+    pub pending_mint_price: u64,
+    pub pending_mint_price_deadline: i64,
 }
 
 impl ProgramState {
@@ -80,7 +88,11 @@ impl ProgramState {
         + 32    // pending_treasury
         + 8     // pending_treasury_deadline
         + 32    // pending_beneficiary
-        + 8;    // pending_beneficiary_deadline
+        + 8     // pending_beneficiary_deadline
+        + 32    // pending_payment_mint
+        + 8     // pending_payment_mint_deadline
+        + 8     // pending_mint_price
+        + 8;    // pending_mint_price_deadline
 
     /// Create a new program state
     pub fn new(
@@ -118,6 +130,10 @@ impl ProgramState {
             pending_treasury_deadline: 0,
             pending_beneficiary: Pubkey::default(),
             pending_beneficiary_deadline: 0,
+            pending_payment_mint: Pubkey::default(),
+            pending_payment_mint_deadline: 0,
+            pending_mint_price: 0,
+            pending_mint_price_deadline: 0,
         }
     }
 

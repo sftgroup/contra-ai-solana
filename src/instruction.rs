@@ -48,8 +48,16 @@ pub enum ContraInstruction {
     CancelBeneficiaryChange,
     ExecuteBeneficiaryChange,
 
+    // ───── 24h Timelock: Payment Mint ─────
+    InitiatePaymentMintChange { new_mint: [u8; 32] },
+    CancelPaymentMintChange,
+    ExecutePaymentMintChange,
+
+    // ───── 24h Timelock: Mint Price ─────
+    InitiateMintPriceChange { new_price: u64 },
+    CancelMintPriceChange,
+    ExecuteMintPriceChange,
+
     // ───── No-timelock (instant) ─────
-    SetPaymentMint { new_mint: [u8; 32] },
-    SetMintPrice { new_price: u64 },
     SetBaseUri { new_uri: String },
 }
