@@ -24,8 +24,8 @@ use spl_token::instruction::{mint_to, transfer};
 
 use crate::error::ContraError;
 use crate::instruction::ContraInstruction;
-use crate::pda::{find_mint_counter_pda, find_state_pda};
-use crate::state::{ProgramState, TIMELOCK_DURATION, STATE_SEED};
+use crate::pda::{find_mint_counter_pda, find_state_pda, find_treasury_pda};
+use crate::state::{ProgramState, TIMELOCK_DURATION, STATE_SEED, TREASURY_SEED};
 
 pub struct Processor;
 
@@ -175,14 +175,15 @@ impl Processor {
 
         let payment_mint_key = Pubkey::new_from_array(payment_mint);
 
-        // Treasury & beneficiary start as payer address (configurable after init)
+        // Treasury = PDA (contra_treasury seed), beneficiary = payer initially
+        let (treasury_pda, _) = find_treasury_pda(program_id);
         let state = ProgramState::new(
             *payer.key,
             payment_mint_key,
             mint_price,
             max_supply,
-            *payer.key,   // treasury: init to payer
-            *payer.key,   // beneficiary: init to payer
+            treasury_pda, // treasury: program PDA
+            *payer.key,    // beneficiary: init to payer (configurable)
             base_uri,
             bump,
         );
@@ -222,9 +223,9 @@ impl Processor {
     //   0. [signer, writable] Payer (minter)
     //   1. [writable]        State PDA
     //   2. [writable]        Payer's payment token account (source)
-    //   3. [writable]        Treasury payment token account (destination)
-    //   4. [writable]        Treasury's beneficiary token account (forward dest)
-    //   5. [writable]        NFT mint account (new)
+    //   3. [writable]        Treasury PDA's payment ATA (destination, signed by program)
+    //   4. [writable]        Beneficiary's payment token account (forward dest)
+    //   5. [writable]        NFT mint account (new, PDA)
     //   6. [writable]        Payer's NFT token account (ATA)
     //   7. []                Token Program
     //   8. []                Associated Token Program
@@ -283,20 +284,20 @@ impl Processor {
         )?;
 
         // Forward payment from treasury → beneficiary
-        // NOTE: In a real deployment, beneficiary_token would be the beneficiary's ATA.
-        // If beneficiary_token == treasury_token, we skip forwarding (beneficiary IS treasury).
+        // Treasury is a PDA ("contra_treasury" seed), so the program can sign transfers.
+        // If beneficiary == treasury PDA, skip forwarding (same account).
+        let (treasury_pda, treasury_bump) = find_treasury_pda(program_id);
         if beneficiary_token.key != treasury_token.key {
             let forward_ix = transfer(
                 token_program.key,
                 treasury_token.key,
                 beneficiary_token.key,
-                &Self::get_state_pda_signer(program_id).0,
+                &treasury_pda,
                 &[],
                 state.mint_price,
             )?;
-            let (_state_pda, bump) = find_state_pda(program_id);
-            let seeds: &[&[u8]] = &[STATE_SEED, &[bump]];
-            let signer_seeds = &[&seeds[..]];
+            let treasury_seeds: &[&[u8]] = &[TREASURY_SEED, &[treasury_bump]];
+            let forward_signer_seeds = &[&treasury_seeds[..]];
 
             invoke_signed(
                 &forward_ix,
@@ -306,7 +307,7 @@ impl Processor {
                     state_info.clone(),
                     token_program.clone(),
                 ],
-                signer_seeds,
+                forward_signer_seeds,
             )?;
         }
 

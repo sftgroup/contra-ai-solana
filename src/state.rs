@@ -6,6 +6,9 @@ use solana_program::pubkey::Pubkey;
 /// Seeds for the program-derived state account
 pub const STATE_SEED: &[u8] = b"contra_state";
 
+/// Seeds for the treasury PDA (holds SPL token payments before forwarding)
+pub const TREASURY_SEED: &[u8] = b"contra_treasury";
+
 /// NFT mint counter seed (per token)
 pub const MINT_COUNTER_SEED: &[u8] = b"contra_mint";
 
