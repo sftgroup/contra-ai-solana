@@ -15,6 +15,7 @@ use solana_program::{
     msg,
     program::{invoke, invoke_signed},
     program_error::ProgramError,
+    program_pack::Pack,
     pubkey::Pubkey,
     rent::Rent,
     sysvar::Sysvar,
@@ -258,6 +259,8 @@ impl Processor {
         let accounts_iter = &mut accounts.iter();
         let payer = next_account_info(accounts_iter)?;
         let state_info = next_account_info(accounts_iter)?;
+        let treasury_pda_info = next_account_info(accounts_iter)?;
+        let payment_mint_info = next_account_info(accounts_iter)?;
         let payer_token = next_account_info(accounts_iter)?;
         let treasury_token = next_account_info(accounts_iter)?;
         let beneficiary_token = next_account_info(accounts_iter)?;
@@ -266,6 +269,7 @@ impl Processor {
         let token_program = next_account_info(accounts_iter)?;
         let ata_program = next_account_info(accounts_iter)?;
         let system_program = next_account_info(accounts_iter)?;
+        let beneficiary_info = next_account_info(accounts_iter)?;
         let _rent_info = next_account_info(accounts_iter)?;
         let _clock_info = next_account_info(accounts_iter)?;
 
@@ -326,9 +330,10 @@ impl Processor {
                 &[
                     payer.clone(),
                     treasury_token.clone(),
-                    token_program.clone(),
-                    ata_program.clone(),
+                    treasury_pda_info.clone(),
+                    payment_mint_info.clone(),
                     system_program.clone(),
+                    token_program.clone(),
                 ],
             )?;
         }
@@ -398,10 +403,10 @@ impl Processor {
                     &[
                         payer.clone(),
                         beneficiary_token.clone(),
-                        state_info.clone(), // beneficiary = rent payer? no — payer pays rent
+                        beneficiary_info.clone(),
+                        payment_mint_info.clone(),
                         system_program.clone(),
                         token_program.clone(),
-                        ata_program.clone(),
                     ],
                 )?;
             }
@@ -422,7 +427,7 @@ impl Processor {
                 &[
                     treasury_token.clone(),
                     beneficiary_token.clone(),
-                    state_info.clone(),
+                    treasury_pda_info.clone(),
                     token_program.clone(),
                 ],
                 forward_signer_seeds,
@@ -437,7 +442,7 @@ impl Processor {
 
         // Create the NFT mint account
         let rent = Rent::get()?;
-        let mint_space = 165usize; // spl_token::state::Mint::LEN
+        let mint_space = spl_token::state::Mint::LEN; // 82
         let mint_lamports = rent.minimum_balance(mint_space);
 
         invoke_signed(
@@ -458,7 +463,7 @@ impl Processor {
         )?;
 
         // Initialize the mint (decimals=0 for NFT)
-        let init_mint_ix = spl_token::instruction::initialize_mint(
+        let init_mint_ix = spl_token::instruction::initialize_mint2(
             token_program.key,
             nft_mint.key,
             &mint_pda,
@@ -467,7 +472,7 @@ impl Processor {
         )?;
         invoke(
             &init_mint_ix,
-            &[nft_mint.clone(), nft_mint.clone(), token_program.clone()],
+            &[nft_mint.clone()],
         )?;
 
         // Create ATA for minter
@@ -504,7 +509,7 @@ impl Processor {
             &[
                 nft_mint.clone(),
                 nft_token.clone(),
-                state_info.clone(),
+                nft_mint.clone(),
                 token_program.clone(),
             ],
             signer_seeds,
