@@ -86,23 +86,11 @@ impl Processor {
                 Self::process_execute_beneficiary_change(program_id, accounts)
             }
 
-            ContraInstruction::InitiatePaymentMintChange { new_mint } => {
-                Self::process_initiate_payment_mint_change(program_id, accounts, &Pubkey::new_from_array(new_mint))
+            ContraInstruction::SetPaymentMint { new_mint } => {
+                Self::process_set_payment_mint(program_id, accounts, &Pubkey::new_from_array(new_mint))
             }
-            ContraInstruction::CancelPaymentMintChange => {
-                Self::process_cancel_payment_mint_change(program_id, accounts)
-            }
-            ContraInstruction::ExecutePaymentMintChange => {
-                Self::process_execute_payment_mint_change(program_id, accounts)
-            }
-            ContraInstruction::InitiateMintPriceChange { new_price } => {
-                Self::process_initiate_mint_price_change(program_id, accounts, new_price)
-            }
-            ContraInstruction::CancelMintPriceChange => {
-                Self::process_cancel_mint_price_change(program_id, accounts)
-            }
-            ContraInstruction::ExecuteMintPriceChange => {
-                Self::process_execute_mint_price_change(program_id, accounts)
+            ContraInstruction::SetMintPrice { new_price } => {
+                Self::process_set_mint_price(program_id, accounts, new_price)
             }
             ContraInstruction::SetBaseUri { new_uri } => {
                 Self::process_set_base_uri(program_id, accounts, new_uri)
@@ -903,10 +891,10 @@ impl Processor {
     }
 
     // ═══════════════════════════════════════════
-    // Payment Mint — 24h Timelock (P1 Security Fix)
+    // Payment Mint — Instant (authority only)
     // ═══════════════════════════════════════════
 
-    fn process_initiate_payment_mint_change(
+    fn process_set_payment_mint(
         _program_id: &Pubkey,
         accounts: &[AccountInfo],
         new_mint: &Pubkey,
@@ -914,7 +902,6 @@ impl Processor {
         let accounts_iter = &mut accounts.iter();
         let authority = next_account_info(accounts_iter)?;
         let state_info = next_account_info(accounts_iter)?;
-        let clock_info = next_account_info(accounts_iter)?;
 
         let mut state = Self::deserialize_state(state_info)?;
         Self::check_authority(&state, authority.key)?;
@@ -923,73 +910,18 @@ impl Processor {
             return Err(ProgramError::InvalidArgument);
         }
 
-        let clock = Self::get_clock(clock_info)?;
-        state.pending_payment_mint = *new_mint;
-        state.pending_payment_mint_deadline = clock.unix_timestamp + TIMELOCK_DURATION;
-
-        Self::serialize_state(state_info, &state)?;
-        msg!("Payment mint change initiated: {} (deadline={})", new_mint, state.pending_payment_mint_deadline);
-        Ok(())
-    }
-
-    fn process_cancel_payment_mint_change(
-        _program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> ProgramResult {
-        let accounts_iter = &mut accounts.iter();
-        let authority = next_account_info(accounts_iter)?;
-        let state_info = next_account_info(accounts_iter)?;
-
-        let mut state = Self::deserialize_state(state_info)?;
-        Self::check_authority(&state, authority.key)?;
-
-        if state.pending_payment_mint == Pubkey::default() {
-            return Err(ContraError::NoPendingChange.into());
-        }
-
-        state.pending_payment_mint = Pubkey::default();
-        state.pending_payment_mint_deadline = 0;
-
-        Self::serialize_state(state_info, &state)?;
-        msg!("Payment mint change cancelled");
-        Ok(())
-    }
-
-    fn process_execute_payment_mint_change(
-        _program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> ProgramResult {
-        let accounts_iter = &mut accounts.iter();
-        let _executor = next_account_info(accounts_iter)?;
-        let state_info = next_account_info(accounts_iter)?;
-        let clock_info = next_account_info(accounts_iter)?;
-
-        let mut state = Self::deserialize_state(state_info)?;
-
-        if state.pending_payment_mint == Pubkey::default() {
-            return Err(ContraError::NoPendingChange.into());
-        }
-
-        let clock = Self::get_clock(clock_info)?;
-        if clock.unix_timestamp < state.pending_payment_mint_deadline {
-            return Err(ContraError::TimelockNotExpired.into());
-        }
-
         let old = state.payment_mint;
-        state.payment_mint = state.pending_payment_mint;
-        state.pending_payment_mint = Pubkey::default();
-        state.pending_payment_mint_deadline = 0;
-
+        state.payment_mint = *new_mint;
         Self::serialize_state(state_info, &state)?;
         msg!("Payment mint updated: {} → {}", old, state.payment_mint);
         Ok(())
     }
 
     // ═══════════════════════════════════════════
-    // Mint Price — 24h Timelock (P1 Security Fix)
+    // Mint Price — Instant (authority only)
     // ═══════════════════════════════════════════
 
-    fn process_initiate_mint_price_change(
+    fn process_set_mint_price(
         _program_id: &Pubkey,
         accounts: &[AccountInfo],
         new_price: u64,
@@ -997,7 +929,6 @@ impl Processor {
         let accounts_iter = &mut accounts.iter();
         let authority = next_account_info(accounts_iter)?;
         let state_info = next_account_info(accounts_iter)?;
-        let clock_info = next_account_info(accounts_iter)?;
 
         let mut state = Self::deserialize_state(state_info)?;
         Self::check_authority(&state, authority.key)?;
@@ -1006,63 +937,8 @@ impl Processor {
             return Err(ContraError::InvalidMintPrice.into());
         }
 
-        let clock = Self::get_clock(clock_info)?;
-        state.pending_mint_price = new_price;
-        state.pending_mint_price_deadline = clock.unix_timestamp + TIMELOCK_DURATION;
-
-        Self::serialize_state(state_info, &state)?;
-        msg!("Mint price change initiated: {} (deadline={})", new_price, state.pending_mint_price_deadline);
-        Ok(())
-    }
-
-    fn process_cancel_mint_price_change(
-        _program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> ProgramResult {
-        let accounts_iter = &mut accounts.iter();
-        let authority = next_account_info(accounts_iter)?;
-        let state_info = next_account_info(accounts_iter)?;
-
-        let mut state = Self::deserialize_state(state_info)?;
-        Self::check_authority(&state, authority.key)?;
-
-        if state.pending_mint_price == 0 {
-            return Err(ContraError::NoPendingChange.into());
-        }
-
-        state.pending_mint_price = 0;
-        state.pending_mint_price_deadline = 0;
-
-        Self::serialize_state(state_info, &state)?;
-        msg!("Mint price change cancelled");
-        Ok(())
-    }
-
-    fn process_execute_mint_price_change(
-        _program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> ProgramResult {
-        let accounts_iter = &mut accounts.iter();
-        let _executor = next_account_info(accounts_iter)?;
-        let state_info = next_account_info(accounts_iter)?;
-        let clock_info = next_account_info(accounts_iter)?;
-
-        let mut state = Self::deserialize_state(state_info)?;
-
-        if state.pending_mint_price == 0 {
-            return Err(ContraError::NoPendingChange.into());
-        }
-
-        let clock = Self::get_clock(clock_info)?;
-        if clock.unix_timestamp < state.pending_mint_price_deadline {
-            return Err(ContraError::TimelockNotExpired.into());
-        }
-
         let old = state.mint_price;
-        state.mint_price = state.pending_mint_price;
-        state.pending_mint_price = 0;
-        state.pending_mint_price_deadline = 0;
-
+        state.mint_price = new_price;
         Self::serialize_state(state_info, &state)?;
         msg!("Mint price updated: {} → {}", old, state.mint_price);
         Ok(())
