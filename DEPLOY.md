@@ -273,3 +273,37 @@ const data = Buffer.concat([Buffer.from([4]), newOwner.toBuffer()]); // Initiate
 - 所有 PDA 的 seeds 都在合约中硬编码，无法被外部伪造
 - 所有账户地址（ATA、PDA）在 `invoke` 前都经过 on-chain 验证
 - 没有自毁、升级后门（deploy upgrade 是唯一升级方式）
+
+## 十、铸造记录
+
+### 2026-07-09 批量铸造 (#2 - #26)
+
+全部 25 个铸造成功，共花 0.25 USDC。
+
+| Token ID | Mint Address |
+|----------|-------------|
+| #2 | 3dVs6LCEjnjCRd2XLJUPyxcVgi8UhipQ54MpAytmbJyF |
+| #3 | 8mLQzBgfynTdaHMFf2RJX9rtcUH1CsiCL3QvMpKGPDk |
+| #4 | 863GDF2YFZya3dQD7dFw36AiQaenwdfsQyLe69spYq6o |
+| #5 | CmoukrVUK3Q6p6NSJPqbnx6HYwVwNX7UmHTLpCb7vtFn |
+| #6 | 9JHBcW7wCizQDEt3qaKh7zQF8nxgHWrrWXbru6x63Fji |
+| #7 | EUsESfF9NAR2njFtKTjEDtPXbc1wKfPPvBims2oFKN2M |
+| #8 | Db7aRCRged2KcHYqGrWrUb4gbqQuBz7M1c6i9bPUjTH5 |
+| #9 | H8AVNp3Tzs8xGmvdH36bbuLzEF6jWXLH3YxksJySqSeU |
+| #10 | HA8BWRhwdya9ToQ43nJBVoYpviqGbL1n1qpt39TgcTna |
+| #11 | 8td4xwSEsX1uBo3FUXHnPUDJBoJo2y5pPVgU63YZocNB |
+| #12 | 8D9EztXRhvcbxs9ca4WfVfixTeF2gMHmpp3NcciGk3r3 |
+| #13 | EJC8gFaoark4ssTNgTLzEKGjVMMWREqqfPQ6ZS1zVy56 |
+| #14 | DBYWAxu2fgT2ktRKrfPcwVmGPaBhuQAFGCBbLDxN87nx |
+| #15 | EoZ3EgDn2smaicyMmsRgYqYNMpAJzffTadfsBgFko3v9 |
+| #16 | BUtqVeyHGUqud4BzbxYNvpX7GfCmDWmCndZhcBn96qsS |
+| #17 | kLGiCQ2BMca2YmEsHjJXnKAAehcKfRohuyKxv3PCS8k |
+| #18 | EVLNZwtieiArR1T3TsVJvkKrhEpmQy23LswSZYCE3wV2 |
+| #19 | 5zUQMH2tkv1K2KxdL6uYFWVmJsDFU6t8UgV5dXgiXqHp |
+| #20 | 2af2dBNi912DXFSHCHABr1PydfCPFLiMuHtbgR5Q8jbR |
+| #21 | 5tNvBmgBJC6seM8cAPEMoYehbP5abNWjvrx1nT9UNWgC |
+| #22 | 6tXAwJvoaF3d8cLBLsqswnr8iX2WfQosAnRXtESPSNWS |
+| #23 | 9aSaWAVGxWFaknBCZiX3LjjLyPnHDTvhnBboCJGK5EVK |
+| #24 | 6p5nno1MiFzXNSTWqLi9XXE4ywioAauNG4PUzecnYzhz |
+| #25 | 8MMAzMiMPrPiwiqTzR7UGhdsaWB6wPjkBNCKebwYBUF5 |
+| #26 | 6ZQz4GeLoyecNgkvGtBYvDAWyDeMRrPo36TG7qLEEN8s |
