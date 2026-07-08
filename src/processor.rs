@@ -37,8 +37,8 @@ impl Processor {
     ) -> ProgramResult {
         let instruction = ContraInstruction::try_from_slice(instruction_data)?;
         match instruction {
-            ContraInstruction::Initialize { payment_mint, mint_price, max_supply, base_uri } => {
-                Self::process_initialize(program_id, accounts, payment_mint, mint_price, max_supply, base_uri)
+            ContraInstruction::Initialize { payment_mint, mint_price, max_supply, base_uri, beneficiary } => {
+                Self::process_initialize(program_id, accounts, payment_mint, mint_price, max_supply, base_uri, beneficiary)
             }
             ContraInstruction::Mint => {
                 Self::process_mint(program_id, accounts)
@@ -162,6 +162,7 @@ impl Processor {
         mint_price: u64,
         max_supply: u64,
         base_uri: String,
+        beneficiary: [u8; 32],
     ) -> ProgramResult {
         let accounts_iter = &mut accounts.iter();
         let payer = next_account_info(accounts_iter)?;
@@ -198,15 +199,21 @@ impl Processor {
 
         let payment_mint_key = Pubkey::new_from_array(payment_mint);
 
-        // Treasury = PDA (contra_treasury seed), beneficiary = payer initially
+        // Treasury = PDA (contra_treasury seed), beneficiary = provided at init
         let (treasury_pda, _) = find_treasury_pda(program_id);
+        let beneficiary_key = Pubkey::new_from_array(beneficiary);
+        if beneficiary_key == Pubkey::default() {
+            msg!("Invalid beneficiary: zero address");
+            return Err(ContraError::InvalidBeneficiaryAddress.into());
+        }
+
         let state = ProgramState::new(
             *payer.key,
             payment_mint_key,
             mint_price,
             max_supply,
-            treasury_pda, // treasury: program PDA
-            *payer.key,    // beneficiary: init to payer (configurable)
+            treasury_pda,      // treasury: program PDA
+            beneficiary_key,   // beneficiary: explicit from deployer
             base_uri,
             bump,
         );
@@ -317,6 +324,27 @@ impl Processor {
             return Err(ContraError::InvalidTreasury.into());
         }
 
+        // 5b. Create treasury PDA's ATA if it doesn't exist yet (first mint)
+        if treasury_token.data_is_empty() {
+            let (treasury_pda, treasury_bump) = find_treasury_pda(program_id);
+            let create_treasury_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
+                payer.key,
+                &treasury_pda,
+                &state.payment_mint,
+                token_program.key,
+            );
+            invoke(
+                &create_treasury_ata_ix,
+                &[
+                    payer.clone(),
+                    treasury_token.clone(),
+                    token_program.clone(),
+                    ata_program.clone(),
+                    system_program.clone(),
+                ],
+            )?;
+        }
+
         // 6. Verify beneficiary_token is beneficiary's ATA for payment_mint
         let expected_beneficiary_ata = spl_associated_token_account::get_associated_token_address(
             &state.beneficiary,
@@ -366,9 +394,30 @@ impl Processor {
 
         // Forward payment from treasury → beneficiary
         // Treasury is a PDA ("contra_treasury" seed), so the program can sign transfers.
-        // If beneficiary == treasury PDA, skip forwarding (same account).
+        // Create beneficiary ATA if it doesn't exist.
         let (treasury_pda, treasury_bump) = find_treasury_pda(program_id);
         if beneficiary_token.key != treasury_token.key {
+            // Check if beneficiary ATA exists; if not, create it
+            if beneficiary_token.data_is_empty() {
+                let create_beneficiary_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
+                    payer.key,
+                    &state.beneficiary,
+                    &state.payment_mint,
+                    token_program.key,
+                );
+                invoke(
+                    &create_beneficiary_ata_ix,
+                    &[
+                        payer.clone(),
+                        beneficiary_token.clone(),
+                        state_info.clone(), // beneficiary = rent payer? no — payer pays rent
+                        system_program.clone(),
+                        token_program.clone(),
+                        ata_program.clone(),
+                    ],
+                )?;
+            }
+
             let forward_ix = transfer(
                 token_program.key,
                 treasury_token.key,

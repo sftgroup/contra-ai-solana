@@ -17,6 +17,8 @@ pub enum ContraInstruction {
         max_supply: u64,
         /// Base URI prefix for token metadata
         base_uri: String,
+        /// Final beneficiary address (receives forwarded funds)
+        beneficiary: [u8; 32],
     },
 
     // ───── Mint ─────
