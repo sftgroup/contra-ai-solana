@@ -122,3 +122,18 @@ thiserror = "2.0"
 
 - **GitHub**: https://github.com/sftgroup/contra-ai-solana
 - **分支**: master
+
+---
+
+## 部署历史
+
+### 2026-07-09 — 升级部署 v3
+
+| 项目 | 值 |
+|------|-----|
+| 交易签名 | `5rXfLkPrx6qZndxYvGT3p8WZLYhHz8u2FWAkvrsuXuAkmghQdEpXpLHXwRJrLBYQshVo1cW8qkuNqWTjeSBsTwdU` |
+| Slot | 431,655,386 |
+| 程序大小 | 153,200 bytes |
+| 改动 | beneficiary 独立参数、Mint 自动创建 ATA、取消 timelock、安全审计修复 |
+| 编译环境 | platform-tools v1.54 (rustc 1.89.0-dev) |
+| 花费 | ~0.025 SOL |
